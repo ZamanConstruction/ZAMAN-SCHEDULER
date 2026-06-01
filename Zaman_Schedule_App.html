@@ -1339,7 +1339,7 @@ function confirmSend() {
     emailjs.send(emailjsCfg.serviceId,emailjsCfg.templateId,{
       to_email:v.email,to_name:v.name,from_name:((currentUser && currentUser.name) || 'Zaman Construction') + ' - Zaman Construction',
       subject:'Scheduling Confirmation Required - '+act.name+' | '+proj.address,
-      message:body,reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),response_link:link,
+      message:body.replace(/\n/g,"<br>"),reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),response_link:link,
       activity:act.name,address:proj.address,stage:act.stage,for_date:forFmt
     }).then(function(){
       act.status='Pending'; dbUpdateActivity(act);
@@ -1378,7 +1378,7 @@ function sendSilent(projId,actId) {
     return emailjs.send(emailjsCfg.serviceId,emailjsCfg.templateId,{
       to_email:v.email,to_name:v.name,from_name:((currentUser && currentUser.name) || 'Zaman Construction') + ' - Zaman Construction',
       subject:'Scheduling Update - '+act.name+' | '+proj.address,
-      message:body,reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),response_link:link,
+      message:body.replace(/\n/g,"<br>"),reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),response_link:link,
       activity:act.name,address:proj.address,stage:act.stage,for_date:forFmt
     }).catch(function(e){console.error('Silent email failed:',e);});
   }
@@ -1445,7 +1445,7 @@ function confirmBulkCallOff() {
               return emailjs.send(emailjsCfg.serviceId,emailjsCfg.templateId,{
                 to_email:v.email,to_name:v.name,from_name:((currentUser && currentUser.name) || 'Zaman Construction') + ' - Zaman Construction',
                 subject:'Schedule Update - '+act.name+' | '+proj.address,
-                message:body,reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),
+                message:body.replace(/\n/g,"<br>"),reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),
                 response_link:'N/A',activity:act.name,address:proj.address,stage:act.stage,for_date:'TBD'
               }).catch(function(){});
             } else {
