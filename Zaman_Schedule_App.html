@@ -275,8 +275,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--black);color:var(--white)
     </div>
     <div class="nav-right">
       <div class="sync-label"><span class="sync-dot"></span><span id="syncStatus">Live</span></div>
-      <div class="nav-avatar" id="navAvatar">TZ</div>
-      <span id="navName" style="font-size:12px;color:var(--grey4)">Taha Zaidi</span>
+      <div class="nav-avatar" id="navAvatar">--</div>
+      <span id="navName" style="font-size:12px;color:var(--grey4)"></span>
       <div class="nav-logout" onclick="doLogout()">Sign Out</div>
     </div>
   </nav>
@@ -321,6 +321,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--black);color:var(--white)
     </div>
     <div class="page" id="page-settings">
       <div class="page-title" style="margin-bottom:24px">SETTINGS</div>
+      <div class="settings-section">
+        <div class="settings-title">My Profile</div>
+        <div class="settings-row"><div><div class="settings-row-label">Display Name</div></div><input class="settings-input" id="setUserName" value=""></div>
+        <div class="settings-row"><div><div class="settings-row-label">Email Address</div><div class="settings-row-sub">Used as your email signature in trade notifications</div></div><input class="settings-input" id="setUserEmail" type="email" placeholder="e.g. bilaal@zamanconstruction.com.au"></div>
+        <div class="settings-row"><div><div class="settings-row-label">Phone Number</div><div class="settings-row-sub">Used in your email signature</div></div><input class="settings-input" id="setUserPhone" placeholder="e.g. 0412 345 678"></div>
+        <div class="settings-row"><div><div class="settings-row-label" style="display:none">hidden</div></div><button class="primary-btn" onclick="saveMyProfile()" style="padding:10px 20px">Save Profile</button></div>
+      </div>
       <div class="settings-section">
         <div class="settings-title">Change Password</div>
         <div class="settings-row"><div><div class="settings-row-label">Current Password</div></div><input class="settings-input" id="setCurrentPass" type="password" placeholder="Enter current password"></div>
@@ -411,10 +418,10 @@ var SINGLE_STOREY_TEMPLATE = [{"num": 1, "name": "Re-estab and Site Set Out", "s
 
 var projects = [], vendors = [];
 var appUsers = [
-  {user:'bilaal', pass:'zamanconstruction', name:'Bilaal Naqvi'},
-  {user:'hussain', pass:'zamanconstruction', name:'Hussain Naqvi'},
-  {user:'syed', pass:'zamanconstruction', name:'Syed Naqvi'},
-  {user:'raza', pass:'zamanconstruction', name:'Raza Naqvi'}
+  {user:'bilaal', pass:'zamanconstruction', name:'Bilaal Naqvi', email:'', phone:''},
+  {user:'hussain', pass:'zamanconstruction', name:'Hussain Naqvi', email:'', phone:''},
+  {user:'syed', pass:'zamanconstruction', name:'Syed Naqvi', email:'', phone:''},
+  {user:'raza', pass:'zamanconstruction', name:'Raza Naqvi', email:'', phone:''}
 ];
 var currentUser = null;
 var appCreds = appUsers[0]; // For backwards compatibility with existing code
@@ -598,9 +605,13 @@ function doLogout() {
 
 // -- INIT ---------------------------------------------------------------------
 function initApp() {
-  var n=appCreds.name||'Taha Zaidi';
+  var n=(currentUser && currentUser.name) || appCreds.name || '';
   el('navName').textContent=n;
   el('navAvatar').textContent=n.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+  // Populate my profile fields
+  if (el('setUserName')) el('setUserName').value = (currentUser && currentUser.name) || '';
+  if (el('setUserEmail')) el('setUserEmail').value = (currentUser && currentUser.email) || '';
+  if (el('setUserPhone')) el('setUserPhone').value = (currentUser && currentUser.phone) || '';
   var hr=new Date().getHours();
   el('dashGreet').textContent=(hr<12?'GOOD MORNING':hr<17?'GOOD AFTERNOON':'GOOD EVENING')+', '+n.split(' ')[0].toUpperCase();
   el('dashDate').textContent=new Date().toLocaleDateString('en-AU',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -1314,14 +1325,21 @@ function confirmSend() {
   closeModal('sendModal');
   act.call_date=isoDate(new Date());
   dbUpdateActivity(act);
-  var link='https://YOUR-GITHUB-USERNAME.github.io/ZAMAN-SCHEDULER/respond.html?proj='+projId+'&act='+act.id;
+  var respondBase = (emailjsCfg.formURL || '').replace(/\/$/, '') || 'https://zamanconstruction.github.io/ZAMAN-SCHEDULER/respond.html';
+  var link = respondBase + '?proj=' + projId + '&act=' + act.id;
   var forFmt=fmtDate(act.for_date);
-  var body='Dear '+v.name+',\n\nI am writing on behalf of Zaman Construction to formally advise of your scheduled date for the upcoming works below.\n\n---\nProject Address: '+proj.address+'\nActivity: '+act.name+'\nStage: '+act.stage+'\nFor Date: '+forFmt+'\n---\n\nPlease confirm your availability by clicking the link below:\n\n'+link+'\n\nYOUR RESPONSE OPTIONS:\n  CONFIRMED - I confirm the scheduled date\n  DECLINED  - I am unable to attend (reason required)\n  ALT DATE  - I propose a different date\n\nKind regards,\nTaha Zaidi\nProject Manager\nZaman CONSTRUCTIONS\nP: 0405 080 275\nE: Info@one10constructions.com.au';
+  var userName = (currentUser && currentUser.name) || appCreds.name || 'Site Supervisor';
+  var userEmail = (currentUser && currentUser.email) || 'info@zamanconstruction.com.au';
+  var userPhone = (currentUser && currentUser.phone) || '';
+  var sig = userName + '\\nProject Manager\\nZaman Construction';
+  if (userPhone) sig += '\\nP: ' + userPhone;
+  sig += '\\nE: ' + userEmail;
+  var body='Dear '+v.name+',\\n\\nI am writing on behalf of Zaman Construction to formally advise of your scheduled date for the upcoming works below.\\n\\n---\\nProject Address: '+proj.address+'\\nActivity: '+act.name+'\\nStage: '+act.stage+'\\nFor Date: '+forFmt+'\\n---\\n\\nPlease confirm your availability by clicking the link below:\\n\\n'+link+'\\n\\nYOUR RESPONSE OPTIONS:\\n  CONFIRMED - I confirm the scheduled date\\n  DECLINED  - I am unable to attend (reason required)\\n  ALT DATE  - I propose a different date\\n\\nKind regards,\\n'+sig;
   if(emailjsCfg.key&&emailjsCfg.serviceId&&emailjsCfg.templateId) {
     emailjs.send(emailjsCfg.serviceId,emailjsCfg.templateId,{
-      to_email:v.email,to_name:v.name,from_name:'Taha Zaidi - Zaman Construction',
+      to_email:v.email,to_name:v.name,from_name:((currentUser && currentUser.name) || 'Zaman Construction') + ' - Zaman Construction',
       subject:'Scheduling Confirmation Required - '+act.name+' | '+proj.address,
-      message:body,reply_to:'Info@one10constructions.com.au',response_link:link,
+      message:body,reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),response_link:link,
       activity:act.name,address:proj.address,stage:act.stage,for_date:forFmt
     }).then(function(){
       act.status='Pending'; dbUpdateActivity(act);
@@ -1353,14 +1371,14 @@ function sendSilent(projId,actId) {
   var proj=projects.find(function(p){return p.id===projId;}), act=getAct(projId,actId);
   var v=vendors.find(function(x){return x.id===act.vendor_id;});
   if(!v||!v.email||!act.for_date) return Promise.resolve();
-  var link='https://YOUR-GITHUB-USERNAME.github.io/ZAMAN-SCHEDULER/respond.html?proj='+projId+'&act='+act.id;
+  var link=((emailjsCfg.formURL || '').replace(/\/$/, '') || 'https://zamanconstruction.github.io/ZAMAN-SCHEDULER/respond.html') + '?proj=' + projId + '&act=' + act.id;
   var forFmt=fmtDate(act.for_date);
-  var body='Dear '+v.name+',\n\nI am writing on behalf of Zaman Construction to advise that your previously scheduled date for the following works has been updated. Please review the new date and reconfirm your availability.\n\n---\nProject: '+proj.address+'\nActivity: '+act.name+'\nStage: '+act.stage+'\nUpdated For Date: '+forFmt+'\n---\n\nPlease confirm: '+link+'\n\nWe apologise for any inconvenience.\n\nKind regards,\nTaha Zaidi\nProject Manager\nZaman CONSTRUCTIONS\nP: 0405 080 275\nE: Info@one10constructions.com.au';
+  var body='Dear '+v.name+',\n\nI am writing on behalf of Zaman Construction to advise that your previously scheduled date for the following works has been updated. Please review the new date and reconfirm your availability.\n\n---\nProject: '+proj.address+'\nActivity: '+act.name+'\nStage: '+act.stage+'\nUpdated For Date: '+forFmt+'\n---\n\nPlease confirm: '+link+'\n\nWe apologise for any inconvenience.\n\nKind regards,\n'+((currentUser && currentUser.name) || 'Site Supervisor')+'\nProject Manager\nZaman Construction'+((currentUser && currentUser.phone) ? '\nP: ' + currentUser.phone : '')+'\nE: '+((currentUser && currentUser.email) || 'info@zamanconstruction.com.au')+'';
   if(emailjsCfg.key&&emailjsCfg.serviceId&&emailjsCfg.templateId) {
     return emailjs.send(emailjsCfg.serviceId,emailjsCfg.templateId,{
-      to_email:v.email,to_name:v.name,from_name:'Taha Zaidi - Zaman Construction',
+      to_email:v.email,to_name:v.name,from_name:((currentUser && currentUser.name) || 'Zaman Construction') + ' - Zaman Construction',
       subject:'Scheduling Update - '+act.name+' | '+proj.address,
-      message:body,reply_to:'Info@one10constructions.com.au',response_link:link,
+      message:body,reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),response_link:link,
       activity:act.name,address:proj.address,stage:act.stage,for_date:forFmt
     }).catch(function(e){console.error('Silent email failed:',e);});
   }
@@ -1422,12 +1440,12 @@ function confirmBulkCallOff() {
           var v=vendors.find(function(x){return x.id===act.vendor_id;});
           if(v&&v.email){
             emailCount++;
-            var body='Dear '+v.name+',\n\nWorks for '+act.name+' at '+proj.address+' have been temporarily postponed.\n\n'+message+'\n\nWe will confirm a new date shortly.\n\nKind regards,\nTaha Zaidi\nZaman CONSTRUCTIONS\n0405 080 275';
+            var body='Dear '+v.name+',\n\nWorks for '+act.name+' at '+proj.address+' have been temporarily postponed.\n\n'+message+'\n\nWe will confirm a new date shortly.\n\nKind regards,\n'+((currentUser && currentUser.name) || 'Zaman Construction')+'\nZaman Construction'+((currentUser && currentUser.phone) ? '\nP: '+currentUser.phone : '')+'';
             if(emailjsCfg.key&&emailjsCfg.serviceId&&emailjsCfg.templateId){
               return emailjs.send(emailjsCfg.serviceId,emailjsCfg.templateId,{
-                to_email:v.email,to_name:v.name,from_name:'Taha Zaidi - Zaman Construction',
+                to_email:v.email,to_name:v.name,from_name:((currentUser && currentUser.name) || 'Zaman Construction') + ' - Zaman Construction',
                 subject:'Schedule Update - '+act.name+' | '+proj.address,
-                message:body,reply_to:'Info@one10constructions.com.au',
+                message:body,reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),
                 response_link:'N/A',activity:act.name,address:proj.address,stage:act.stage,for_date:'TBD'
               }).catch(function(){});
             } else {
@@ -1770,6 +1788,32 @@ function saveSettings() {
   });
 }
 
+function saveMyProfile() {
+  if (!currentUser) return;
+  var newName = el('setUserName').value.trim();
+  var newEmail = el('setUserEmail').value.trim();
+  var newPhone = el('setUserPhone').value.trim();
+  if (!newName) { showToast('Display name cannot be empty.', 'error'); return; }
+  
+  // Update in appUsers array
+  var idx = appUsers.findIndex(function(u){ return u.user === currentUser.user; });
+  if (idx > -1) {
+    appUsers[idx].name = newName;
+    appUsers[idx].email = newEmail;
+    appUsers[idx].phone = newPhone;
+    currentUser.name = newName;
+    currentUser.email = newEmail;
+    currentUser.phone = newPhone;
+    appCreds = currentUser;
+  }
+  sb.from('app_settings').upsert({id:'main', users:appUsers, emailjs:emailjsCfg}).then(function(){
+    // Update nav display
+    el('navName').textContent = newName;
+    el('navAvatar').textContent = newName.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+    showToast('Profile saved.', 'success');
+  });
+}
+
 function changePassword() {
   var current = el('setCurrentPass').value;
   var newP = el('setNewPass').value;
@@ -1958,7 +2002,7 @@ function renderProjectComments(projId) {
       html += '<div style="background:var(--black2);border:1px solid var(--grey1);border-radius:8px;padding:14px 16px;margin-bottom:8px' + (isOld ? ';opacity:.6' : '') + '">';
       html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">';
       html += '<div style="font-size:10px;color:var(--grey4)">' + dateStr + ' at ' + timeStr + '</div>';
-      html += '<div style="font-size:10px;color:var(--grey3)">' + (c.author || 'Taha Zaidi') + '</div></div>';
+      html += '<div style="font-size:10px;color:var(--grey3)">' + (c.author || 'Unknown') + '</div></div>';
       html += '<div style="font-size:13px;color:var(--white);line-height:1.6">' + c.text + '</div></div>';
     });
   }
@@ -2087,7 +2131,7 @@ function renderDelaysTab(projId) {
       html += '<div id="delay-' + idx + '" style="display:none;padding:0 16px 14px;border-top:1px solid var(--grey1)">';
       if (affNames) html += '<div style="font-size:11px;color:var(--grey4);margin-top:10px"><strong style="color:var(--white)">Activities affected:</strong> ' + affNames + '</div>';
       if (d.notes) html += '<div style="font-size:11px;color:var(--grey4);margin-top:6px"><strong style="color:var(--white)">Notes:</strong> ' + d.notes + '</div>';
-      html += '<div style="font-size:10px;color:var(--grey3);margin-top:8px">Logged by ' + (d.logged_by || 'Taha Zaidi') + '</div>';
+      html += '<div style="font-size:10px;color:var(--grey3);margin-top:8px">Logged by ' + (d.logged_by || 'Unknown') + '</div>';
       html += '</div></div>';
     });
   }
