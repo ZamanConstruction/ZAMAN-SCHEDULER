@@ -1331,10 +1331,10 @@ function confirmSend() {
   var userName = (currentUser && currentUser.name) || appCreds.name || 'Site Supervisor';
   var userEmail = (currentUser && currentUser.email) || 'info@zamanconstruction.com.au';
   var userPhone = (currentUser && currentUser.phone) || '';
-  var sig = userName + '\\nProject Manager\\nZaman Construction';
-  if (userPhone) sig += '\\nP: ' + userPhone;
-  sig += '\\nE: ' + userEmail;
-  var body='Dear '+v.name+',\\n\\nI am writing on behalf of Zaman Construction to formally advise of your scheduled date for the upcoming works below.\\n\\n---\\nProject Address: '+proj.address+'\\nActivity: '+act.name+'\\nStage: '+act.stage+'\\nFor Date: '+forFmt+'\\n---\\n\\nPlease confirm your availability by clicking the link below:\\n\\n'+link+'\\n\\nYOUR RESPONSE OPTIONS:\\n  CONFIRMED - I confirm the scheduled date\\n  DECLINED  - I am unable to attend (reason required)\\n  ALT DATE  - I propose a different date\\n\\nKind regards,\\n'+sig;
+  var sig = userName + '\nProject Manager\nZaman Construction';
+  if (userPhone) sig += '\nP: ' + userPhone;
+  sig += '\nE: ' + userEmail;
+  var body='Dear '+v.name+',\n\nI am writing on behalf of Zaman Construction to formally advise of your scheduled date for the upcoming works below.\n\n---\nProject Address: '+proj.address+'\nActivity: '+act.name+'\nStage: '+act.stage+'\nFor Date: '+forFmt+'\n---\n\nPlease confirm your availability by clicking the link below:\n\n'+link+'\n\nYOUR RESPONSE OPTIONS:\n  CONFIRMED - I confirm the scheduled date\n  DECLINED  - I am unable to attend (reason required)\n  ALT DATE  - I propose a different date\n\nKind regards,\n'+sig;
   if(emailjsCfg.key&&emailjsCfg.serviceId&&emailjsCfg.templateId) {
     emailjs.send(emailjsCfg.serviceId,emailjsCfg.templateId,{
       to_email:v.email,to_name:v.name,from_name:((currentUser && currentUser.name) || 'Zaman Construction') + ' - Zaman Construction',
