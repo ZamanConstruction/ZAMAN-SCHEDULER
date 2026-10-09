@@ -426,6 +426,27 @@ var appUsers = [
 var currentUser = null;
 var appCreds = appUsers[0]; // For backwards compatibility with existing code
 var emailjsCfg = {key:'',serviceId:'',templateId:'',formURL:''};
+var EMAILJS_DEFAULTS = {serviceId:'service_qw3l1xj',templateId:'template_mxre4wa'};
+function applyEmailDefaults() {
+  if (!emailjsCfg || typeof emailjsCfg !== 'object') emailjsCfg = {};
+  if (!emailjsCfg.serviceId) emailjsCfg.serviceId = EMAILJS_DEFAULTS.serviceId;
+  if (!emailjsCfg.templateId) emailjsCfg.templateId = EMAILJS_DEFAULTS.templateId;
+  if (!emailjsCfg.key) emailjsCfg.key = '';
+  if (!emailjsCfg.formURL) emailjsCfg.formURL = '';
+  try { if (emailjsCfg.key && typeof emailjs !== 'undefined') emailjs.init(emailjsCfg.key); } catch(e) { console.error(e); }
+}
+applyEmailDefaults();
+var lastEmailAlert = 0;
+function emailFail(msg) {
+  console.error('Email problem:', msg);
+  var now = Date.now();
+  if (now - lastEmailAlert > 10000) { lastEmailAlert = now; alert(msg); }
+  else { showToast(msg, 'error'); }
+}
+function emailReady() {
+  return !!(emailjsCfg.key && emailjsCfg.serviceId && emailjsCfg.templateId);
+}
+var EMAIL_NOT_SET_MSG = 'Email is not set up yet. Go to Settings, fill in the EmailJS Public Key, and click Save Settings. No email was sent.';
 var curProjId = null, editVendorId = null, pendingSend = null, addActProjId = null;
 var schedView = 'weekly';
 var currentSelection = [];
@@ -483,6 +504,7 @@ function dbFetch() {
     });
     if (sRes.data) {
       emailjsCfg = sRes.data.emailjs || emailjsCfg;
+      applyEmailDefaults();
       // Load saved templates
       if (sRes.data.templates) {
         window.customTemplates = sRes.data.templates;
@@ -1323,8 +1345,6 @@ function confirmSend() {
   var proj=projects.find(function(p){return p.id===projId;}), act=getAct(projId,actId);
   var v=vendors.find(function(x){return x.id===act.vendor_id;});
   closeModal('sendModal');
-  act.call_date=isoDate(new Date());
-  dbUpdateActivity(act);
   var respondBase = (emailjsCfg.formURL || '').replace(/\/$/, '') || 'https://zamanconstruction.github.io/ZAMAN-SCHEDULER/respond.html';
   var link = respondBase + '?proj=' + projId + '&act=' + act.id;
   var forFmt=fmtDate(act.for_date);
@@ -1342,16 +1362,15 @@ function confirmSend() {
       message:body.replace(/\n/g,"<br>"),reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),response_link:link,
       activity:act.name,address:proj.address,stage:act.stage,for_date:forFmt
     }).then(function(){
+      act.call_date=isoDate(new Date());
       act.status='Pending'; dbUpdateActivity(act);
       renderDetail(projId,'','all',currentSelection); renderDashboard();
       showToast('Email sent to '+v.name,'success');
-    }).catch(function(){
-      fallbackMailto(v,act,proj,link,body);
+    }).catch(function(err){
+      emailFail('Email to '+v.name+' was NOT sent. Reason: '+((err&&(err.text||err.message))||'unknown error'));
     });
   } else {
-    fallbackMailto(v,act,proj,link,body);
-    act.status='Pending'; dbUpdateActivity(act);
-    renderDetail(projId,'','all',currentSelection);
+    emailFail(EMAIL_NOT_SET_MSG);
   }
 }
 function fallbackMailto(v,act,proj,link,body) {
@@ -1380,8 +1399,11 @@ function sendSilent(projId,actId) {
       subject:'Scheduling Update - '+act.name+' | '+proj.address,
       message:body.replace(/\n/g,"<br>"),reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),response_link:link,
       activity:act.name,address:proj.address,stage:act.stage,for_date:forFmt
-    }).catch(function(e){console.error('Silent email failed:',e);});
+    }).catch(function(e){
+      emailFail('Update email to '+v.name+' was NOT sent. Reason: '+((e&&(e.text||e.message))||'unknown error'));
+    });
   }
+  emailFail(EMAIL_NOT_SET_MSG);
   return Promise.resolve();
 }
 
@@ -1447,9 +1469,12 @@ function confirmBulkCallOff() {
                 subject:'Schedule Update - '+act.name+' | '+proj.address,
                 message:body.replace(/\n/g,"<br>"),reply_to:((currentUser && currentUser.email) || 'info@zamanconstruction.com.au'),
                 response_link:'N/A',activity:act.name,address:proj.address,stage:act.stage,for_date:'TBD'
-              }).catch(function(){});
+              }).catch(function(err){
+                emailFail('Call-off email to '+v.name+' was NOT sent. Reason: '+((err&&(err.text||err.message))||'unknown error'));
+              });
             } else {
-              window.open('mailto:'+v.email+'?subject='+encodeURIComponent('Schedule Update')+'&body='+encodeURIComponent(body));
+              emailCount--;
+              emailFail(EMAIL_NOT_SET_MSG);
             }
           }
         }
@@ -1783,7 +1808,8 @@ function saveSettings() {
   emailjsCfg.templateId=el('setEJTemplate').value.trim();
   emailjsCfg.formURL=el('setFormURL').value.trim();
   if(emailjsCfg.key) emailjs.init(emailjsCfg.key);
-  sb.from('app_settings').upsert({id:'main',creds:appCreds,emailjs:emailjsCfg}).then(function(){
+  sb.from('app_settings').upsert({id:'main',users:appUsers,emailjs:emailjsCfg}).then(function(r){
+    if (r && r.error) { alert('Settings were NOT saved: ' + r.error.message); return; }
     showToast('Settings saved.','success');
   });
 }
